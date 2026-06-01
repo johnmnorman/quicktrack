@@ -44,7 +44,7 @@ with open("./appids.cfg", "r") as file:
 if len(display_list) == 0:
     print("CONFIG ERROR! appids.cfg appears to be empty!")
     exit(1)
-            
+
 ### SCRIPT BEGINS ###
 def print_aliases():
     print("Available games:")
@@ -58,7 +58,7 @@ invoke quicktrack on its own with no commandline arguments.
 
 Quicktrack can also be started by giving aliases to your games and passing those
 aliases as a command line argument to quicktrack. You can see a list of these aliases
-by invoking 
+by invoking
 
 $ quicktrack list
 
@@ -95,12 +95,12 @@ if len(sys.argv) < 2:
             print("Exiting...")
             exit(0)
 
-        if choice.isdigit() == False: 
+        if choice.isdigit() == False:
             continue
 
         choice = int(choice)
 
-        if choice < 1 or choice > len(display_list) + 1: 
+        if choice < 1 or choice > len(display_list) + 1:
             continue
 
         break
@@ -110,11 +110,10 @@ if len(sys.argv) < 2:
     game = appid[game_name]
     game_path = os.path.join(STEAM_PATH, "compatdata", game, "pfx/drive_c/windows/system32")
     game_path = os.path.expanduser(game_path)
-
     if os.path.exists(game_path):
         if not os.path.isfile(os.path.join(game_path, "icuuc.dll")):
             print("Inserting icuuc.dll for opentrack compatibility...")
-            shutil.copyfile("./icuuc.dll", game_path)
+            shutil.copyfile("./icuuc.dll", os.path.join(game_path, "icuuc.dll"))
         else:
             print("Found icuuc.dll.")
 
@@ -132,7 +131,7 @@ elif sys.argv[1] == "list":
     exit()
 elif sys.argv[1] in aliases.keys():
     game_name = aliases[sys.argv[1]]
-     
+
     game = appid[game_name]
     game_path = os.path.join(STEAM_PATH, "compatdata", game, "pfx/drive_c/windows/system32")
     game_path = os.path.expanduser(game_path)
