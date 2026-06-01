@@ -10,12 +10,13 @@ import sys
 ### CONFIGURATION SECTION ###
 # Fallback steam directory location. Can be defined in appids.cfg
 STEAM_PATH = "~/.steam/steam/steamapps"
-
+INSTALL_PATH = "~/Documents/dev/quicktrack"
+INSTALL_PATH = os.path.expanduser(INSTALL_PATH)
 appid = {}
 display_list = []
 aliases = {}
 
-with open("./appids.cfg", "r") as file:
+with open(os.path.join(INSTALL_PATH, "appids.cfg"), "r") as file:
     for line in file:
         if line[0] == "#":
             continue
@@ -117,7 +118,7 @@ if len(sys.argv) < 2:
         else:
             print("Found icuuc.dll.")
 
-        call("protontricks-launch --appid {} ./install/opentrack.exe".format(game), shell=True)
+        call("protontricks-launch --appid {} {}".format(game, os.path.join(INSTALL_PATH, "install", "opentrack.exe")), shell=True)
         exit()
     else:
         print("ERROR! Game directory not found:\n {}".format(game_path))
@@ -144,7 +145,7 @@ elif sys.argv[1] in aliases.keys():
             print("Found icuuc.dll.")
 
         print("Attempting to launch opentrack...")
-        call("protontricks-launch --appid {} ./install/opentrack.exe".format(game), shell=True)
+        call("protontricks-launch --appid {} {}".format(game, os.path.join(INSTALL_PATH,"install","opentrack.exe")), shell=True)
     else:
         print("Game directory not found:\n{}".format(game_path))
 
@@ -153,5 +154,3 @@ else:
     print_aliases()
     print()
     print_help()
-
-
