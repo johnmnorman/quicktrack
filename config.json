@@ -1,0 +1,15 @@
+{
+  "steamPaths": ["~/.steam/steam/steamapps/"],
+  "games": [
+    {
+      "name": "IL-2 Sturmovik",
+      "alias": "il2",
+      "appid": "307960"
+    },
+    {
+      "name": "Nuclear Option",
+      "alias": "nuclear",
+      "appid": "2168680"
+    }
+  ]
+}
