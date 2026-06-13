@@ -1,158 +1,92 @@
 #!/usr/bin/python
 
 from subprocess import call
-import os
+from pathlib import Path
+import json
 import shutil
 import sys
-#TODO:
-#USAGE and LIST ALL ALIASES
 
-### CONFIGURATION SECTION ###
-# Fallback steam directory location. Can be defined in appids.cfg
-STEAM_PATH = "~/.steam/steam/steamapps"
+version = "v0.1.1"
 
-appid = {}
-display_list = []
-aliases = {}
-
-with open("./appids.cfg", "r") as file:
-    for line in file:
-        if line[0] == "#":
-            continue
-        elif line[0] == "!":
-            parsed_line = line.split()
-            parsed_line = ' '.join(parsed_line[1:])
-
-            STEAM_PATH = parsed_line
-            if os.path.isdir(os.path.expanduser(STEAM_PATH)) == False:
-                print("CONFIG ERROR in appids.cfg! steam directory not found:\n {}".format(STEAM_PATH))
-                exit(1)
-            continue
-        parsed_line = line.split(',')
-        if len(parsed_line) != 3:
-            print("CONFIG ERROR in appids.cfg! lines must contain 3 comma-separated values:\n> {}".format(line))
-            exit(1)
-        k, alias, v = parsed_line[0].strip(), parsed_line[1].strip(), parsed_line[2].strip()
-        if v.isdigit() == False:
-            print("CONFIG ERROR in appids.cfg! invalid appid in this line:\n {}".format(line))
-            exit(1)
-
-        display_list.append(k)
-        aliases[alias] = k
-        appid[k] = v
-
-if len(display_list) == 0:
-    print("CONFIG ERROR! appids.cfg appears to be empty!")
-    exit(1)
-            
-### SCRIPT BEGINS ###
-def print_aliases():
-    print("Available games:")
-    print()
-    for i in aliases.keys():
-        print(" {} - {}".format(i, aliases[i]))
-def print_help():
+# Avoid logic if just calling help/usage dialog
+if len(sys.argv) == 2 and sys.argv[1] in ("-h", "--help"):
     print(
-            """USAGE: To show an interactive menu of available games to start opentrack for,
-invoke quicktrack on its own with no commandline arguments.
+        """Usage: quicktrack [ALIAS]
 
-Quicktrack can also be started by giving aliases to your games and passing those
-aliases as a command line argument to quicktrack. You can see a list of these aliases
-by invoking 
+When ALIAS supplied and in config.json, inject icuuc.dll and run OpenTrack within game.
 
-$ quicktrack list
+With no ALIAS, show available games.
+  -h, --help      show this help dialog
 
-in your shell. Let's say you've defined the alias il2 for IL-2 Sturmovik. You can
-then use the command
+Quicktrack {}, Breadfish47""".format(version)
+    )
+    sys.exit(0)
 
-$ quicktrack il2
+# Establish script directory to retrieve config file
+script_dir = Path(__file__).resolve().parent
+config_path = script_dir / "config.json"
 
-to launch opentrack in the right proton prefix for playing IL-2 Sturmovik. You can
-add new games, change aliases, and set a custom steam directory in appids.cfg.""")
-game = ""
-game_name = ""
+try:
+    with config_path.open() as file:
+        config = json.load(file)
+except FileNotFoundError:
+    print("Error: Config file not found")
+    sys.exit(1)
+except json.JSONDecodeError:
+    print("Error: Invalid JSON in config file")
+    sys.exit(1)
 
 
-if len(sys.argv) < 2:
-    print("QUICKTRACK v0.1")
-    print()
-    print("Available games:")
-    for i in range(len(display_list)):
-                   print(" {}) {}".format(i+1, display_list[i]))
+def print_games():
+    print("Quicktrack {}".format(version))
+    for game in config["games"]:
+        print("-- {} / alias {}\n".format(game["name"], game["alias"]))
 
-    print(" q) Quit.")
 
-    choice = -1
-    while True:
-        try:
-            choice = input("> ")
-        except KeyboardInterrupt:
-            exit("Exiting...")
-        except EOFError:
-            exit("Exiting...")
+# Expand steam_path into full proton prefix DLL check
+def proton_path(steam_path, appid):
+    return (
+        Path(steam_path).expanduser()
+        / "compatdata"
+        / appid
+        / "pfx"
+        / "drive_c"
+        / "windows"
+        / "system32"
+    )
 
-        if choice == 'q':
-            print("Exiting...")
-            exit(0)
 
-        if choice.isdigit() == False: 
-            continue
+def inject_track(alias):
+    # Check each game's alias, if no match return None
+    game = next((game for game in config["games"] if game["alias"] == alias), None)
+    if game is None:
+        print("Error: Alias not in config.json")
+        sys.exit(1)
+    # Check each steamPath location, if game not found return None
+    game_path = None
+    for location in config["steamPaths"]:
+        possible_path = proton_path(location, game["appid"])
+        if possible_path.is_dir():
+            game_path = possible_path
+            print("Using steamPath {}".format(game_path))
+            break
+    if game_path is None:
+        print("Error: game not found at listed steamPath(s)")
+        sys.exit(1)
+    if not (game_path / "icuuc.dll").is_file():
+        print("Inserting icuuc.dll for opentrack compatibility...")
+        shutil.copyfile(script_dir / "icuuc.dll", game_path / "icuuc.dll")
 
-        choice = int(choice)
+    call(
+        "protontricks-launch --appid {} {}".format(
+            game["appid"], script_dir / "install" / "opentrack.exe"
+        ),
+        shell=True,
+    )
+    sys.exit(0)
 
-        if choice < 1 or choice > len(display_list) + 1: 
-            continue
 
-        break
-
-    game_name = display_list[choice-1]
-
-    game = appid[game_name]
-    game_path = os.path.join(STEAM_PATH, "compatdata", game, "pfx/drive_c/windows/system32")
-    game_path = os.path.expanduser(game_path)
-
-    if os.path.exists(game_path):
-        if not os.path.isfile(os.path.join(game_path, "icuuc.dll")):
-            print("Inserting icuuc.dll for opentrack compatibility...")
-            shutil.copyfile("./icuuc.dll", game_path)
-        else:
-            print("Found icuuc.dll.")
-
-        call("protontricks-launch --appid {} ./install/opentrack.exe".format(game), shell=True)
-        exit()
-    else:
-        print("ERROR! Game directory not found:\n {}".format(game_path))
-        exit(1)
-
-elif len(sys.argv) > 2:
-    print_help()
-    exit(1)
-elif sys.argv[1] == "list":
-    print_aliases()
-    exit()
-elif sys.argv[1] in aliases.keys():
-    game_name = aliases[sys.argv[1]]
-     
-    game = appid[game_name]
-    game_path = os.path.join(STEAM_PATH, "compatdata", game, "pfx/drive_c/windows/system32")
-    game_path = os.path.expanduser(game_path)
-
-    if os.path.exists(game_path):
-        if not os.path.isfile(os.path.join(game_path, "icuuc.dll")):
-            print("Inserting icuuc.dll for opentrack compatibility...")
-            shutil.copyfile("./icuuc.dll", game_path)
-        else:
-            print("Found icuuc.dll.")
-
-        print("Attempting to launch opentrack...")
-        call("protontricks-launch --appid {} ./install/opentrack.exe".format(game), shell=True)
-    else:
-        print("Game directory not found:\n{}".format(game_path))
-
+if len(sys.argv) == 2:
+    inject_track(sys.argv[1])
 else:
-    print("{} was not a recognized command!\n".format(sys.argv[1]))
-    print_aliases()
-    print()
-    print_help()
-
-
+    print_games()
